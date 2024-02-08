@@ -50,8 +50,49 @@
 > ex. sigmoid, tanh
 >
 > ### non-saturating의 정의 
-> - $f$ is non-saturating iff $(|\lim_{z \rightarrow -\infin}f(z)| = +\infin) \lor (|\lim_{z \rightarrow \infin}f(z)|= +\infin)$ <br/>
+> - $f$ is non-saturating iff $(|\lim_{z \rightarrow -\infty}f(z)| = +\infty) \lor (|\lim_{z \rightarrow \infty}f(z)|= +\infty)$ <br/>
 
 - ReLU(Rectified Linear Unit)를 활성화 함수로 사용
   - ReLU를 사용하는 CNN 네트워크가 tanh를 사용하는 네트워크에 비해 학습이 수렴하는 속도가 몇 배 더 빠르다
-  - 
+- 다른 연구에서도 활성화 함수를 대체하려는 연구는 있었으나 학습 속도를 위해 적용한 것은 처음이다.
+
+### Training on Multiple GPUs
+- GTX 580 3GB를 사용
+  - 전체 데이터셋을 하나의 GPU에 올리기에는 용량이 부족하다
+  - 저자들은 두 개의 GPU를 사용
+  - GPU는 시스템 메모리를 거치지 않고 서로의 메모리에서 직접 읽고 쓸 수 있음 &rarr; 병렬화에 적합
+- 특정 레이어에서만 2개의 GPU가 서로 데이터를 교환 가능하도록, 나머지 레이어는 같은 GPU로부터 연산을 이어받음
+
+### Local Response Normalization
+- ReLU는 포화(기울기가 점점 작아지는 현상)를 방지하기 위해 정규화를 필요로 하지 않음
+  - 양수인 input이 조금이라도 있다면 학습이 진행된다
+- 하지만 저자들은 일반화에 도움이 되는 새로운 로컬 정규화 방식을 도입
+
+$$ b^i_{x,y}  = a^i_{x,y} / \left(k + \alpha \sum\limits_{j=max(0,i-n/2)}^{min(N-1,i+n/2)}(a^j_{x,y})^2 \right)^\beta $$
+
+- $a^i_{x,y}$ : 위치 $(x,y)$에 커널 $i$를 적용한 다음 ReLU를 적용 &rarr; 뉴런 $a$의 출력
+- $b^i_{x,y}$ : 정규화된 출력 $b$, 주어진 식은 $n$개의 인접 커널 맵에 걸쳐 실행(동일한 공간 위치?)
+- $k$, $n$, $\alpha$, $\beta$는 hyperparameter
+- LRN 적용 후 성능이 더 좋아짐을 확인(top-1 에러에서 1.4%, top-5 에러에서 1.2%의 성능 향상)
+
+- **batch normalization의 등장으로 현재는 잘 사용하지 않음**
+
+### Overlapping Pooling
+
+- CNN에서의 풀링 레이어는 같은 커널 내의 인접한 뉴런의 출력을 요약
+- 전통적으로 풀링 레이어의 커널을 겹쳐서 사용하지 않음
+- 하지만 저자들은 풀링 레이어의 커널들을 서로 겹치게 설정함으로써 더 높은 성능을 거둠(stride = 2, 3x3 kernel 사용)
+
+### Overall Architecture
+![img](./img/alexnet_architecture.PNG)
+- 전체 네트워크는 총 8개의 가중치 레이어로 구성
+  - 첫 5개의 레이어는 convolutional layer, 나머지 3개의 레이어는 fully-connected layer
+  - 마지막 fc 레이어의 출력은 1000개의 출력을 가진 softmax &rarr; 1000개의 클래스에 대응
+- 2, 4, 5번째 convolutional layer는 동일한 GPU의 이전 레이어에만 연결 되어있음
+- 3번째 레이어는 두번째 레이어의 모든 커널 맵과 연결되어 있음(두 개의 GPU 모두 해당하는듯)
+- fc 레이어의 경우 이전 레이어의 모든 뉴런과 연결되어 있음
+- Response normalization 레이어(LRN)는 첫번째와 두번째 conv 레이어 뒤에 옴
+- Max pooling layer의 경우 LRN 레이어와 5번째 conv 레이어 뒤에 옴
+- 모든 conv 레이어와 fc 레이어가 ReLU 활성화 함수를 사용
+  - 레이어 구조는 conv - ReLU - (LRN) - (max-pooling) 레이어 순서<br/><br/>
+- ㅇ
