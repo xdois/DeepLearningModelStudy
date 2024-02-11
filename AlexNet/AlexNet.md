@@ -95,4 +95,32 @@ $$ b^i_{x,y}  = a^i_{x,y} / \left(k + \alpha \sum\limits_{j=max(0,i-n/2)}^{min(N
 - Max pooling layer의 경우 LRN 레이어와 5번째 conv 레이어 뒤에 옴
 - 모든 conv 레이어와 fc 레이어가 ReLU 활성화 함수를 사용
   - 레이어 구조는 conv - ReLU - (LRN) - (max-pooling) 레이어 순서<br/><br/>
-- ㅇ
+
+- first convolutional layer
+  - input : 227 * 227 * 3(논문에는 224 * 224 * 3으로 나와있는데 실제는 227이라고함)
+  - output : 55 * 55 * 96 * 3
+  - 11 * 11 * 3 kernel size, 96개의 커널
+  - stride 4px
+  - padding 0px
+  
+<details>
+  <summary>Convolutional layer의 output</summary>
+
+  - 입력 데이터: $W_1 \times H_1 \times D_1$ ($W_1$: 가로, $H_1$: 세로, $D_1$: 채널의 수)
+  - 필터(커널)의 수: $K$
+  - 필터의 크기(가로=세로): $F$
+  - 스트라이드: $S$
+  - 패딩: $P$
+  <br/><br/>
+  - 출력
+    - $W_2 = (W_1 - F + 2P)/S+1$
+    - $H_2 = (H_1 - F + 2P)/S+1$
+    - $D_2 = K$
+  - 가중치의 수: $[F_2 \times D_1 + D_1] \times K$
+</details>
+
+- first max-pooling layer
+  - input : 55 * 55 * 96
+  - 3 * 3 kernel size
+  - stride 2px
+  - output : 27 * 27 * 96 * 3 ($input-kernel/stride+1$)
