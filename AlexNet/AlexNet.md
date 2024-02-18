@@ -96,12 +96,12 @@ $$ b^i_{x,y}  = a^i_{x,y} / \left(k + \alpha \sum\limits_{j=max(0,i-n/2)}^{min(N
 - 모든 conv 레이어와 fc 레이어가 ReLU 활성화 함수를 사용
   - 레이어 구조는 conv - ReLU - (LRN) - (max-pooling) 레이어 순서<br/><br/>
 
-- first convolutional layer
+- First Convolutional Layer(Conv-1)
   - input : 227 * 227 * 3(논문에는 224 * 224 * 3으로 나와있는데 실제는 227이라고함)
-  - output : 55 * 55 * 96 * 3
   - 11 * 11 * 3 kernel size, 96개의 커널
   - stride 4px
   - padding 0px
+  - output : 55 * 55 * 96
   
 <details>
   <summary>Convolutional layer의 output</summary>
@@ -119,8 +119,125 @@ $$ b^i_{x,y}  = a^i_{x,y} / \left(k + \alpha \sum\limits_{j=max(0,i-n/2)}^{min(N
   - 가중치의 수: $[F_2 \times D_1 + D_1] \times K$
 </details>
 
-- first max-pooling layer
+- First Max-Pooling Layer(MaxPool-1)
   - input : 55 * 55 * 96
   - 3 * 3 kernel size
   - stride 2px
-  - output : 27 * 27 * 96 * 3 ($input-kernel/stride+1$)
+  - output : 27 * 27 * 96($input-kernel/stride+1$)
+  
+- Second Convolutional Layer(Conv-2)
+  - input : 27 * 27 * 96
+  - 5 * 5 kernel size, 256개
+  - stride 1px
+  - padding 2px
+  - output : 27 * 27 * 256
+
+- Second Max-Pooling Layer(MaxPool-2)
+  - input : 27 * 27 * 256
+  - 3 * 3 kernel size
+  - stride 2px
+  - output : 13 * 13 * 256
+  
+- Third Convolutional Layer(Conv-3)
+  - input : 13 * 13 * 256
+  - 3 * 3 kernel size, 384개
+  - stride 1px
+  - padding 1px
+  - output : 13 * 13 * 384
+  
+- 4th Convolutional Layer(Conv-4)
+  - 3rd Convolutional Layer와 동일
+  
+- 5th Convolutional Layer(Conv-5)
+  - input : 13 * 13 * 384
+  - 3 * 3 kernel size, 256개
+  - stride 1px
+  - padding 1px
+  - output : 13 * 13 * 256
+  
+- 3rd Max-Pooling Layer(MaxPool-3)
+  - input : 13 * 13 * 256
+  - 3 * 3 kernel size
+  - stride 2px
+  - output : 6 * 6 * 256
+  
+- 1st Fully-Connected Layer(FC-1)
+  - 4096개의 뉴런
+- 2nd Fully-Connected Layer(FC-2)
+  - 4096개의 뉴런
+- 3rd Fully-Connected Layer(FC-3)
+  - 1000개의 뉴런
+
+- 최종 output : 1000 * 1
+
+## Reducing Overfitting
+
+### Data Augmentation
+- 가장 쉽고 흔한 오버피팅을 줄이는 방법: 인공적인 방법으로 데이터셋의 크기를 키우는 것
+- 저자들은 서로 다른 두가지 형태를 도입
+  - 두가지 방법 모두 원본 이미지에 아주 적은 연산만으로 적용 가능, 별도의 저장공간도 필요 x
+  - GPU를 통해 이전 배치의 이미지를 학습하는 동시에 변환된 이미지를 CPU를 통해 생성
+
+- 첫번째 데이터 증강 방식: horizontal reflection(수평 반사), image translations?
+  - 256x256 이미지에서 무작위로 227x227 패치를 추출 &rarr; 수평 반사
+  - 데이터셋의 크기를 2048배로 만들어줌(10개의 패치 추출 * 수평 반사 2 해서 2048배인듯)
+  - 테스트 시에는 5개의 패치(4개의 코너, 가운데)를 추출 &rarr; 수평 반사 &rarr; 10개의 이미지에 대한 예측 수행 후 평균을 내서 결과를 냄
+
+- 두번째 데이터 증강 방식
+  - RGB 채널의 강도를 변경 (픽셀 값에 대한 PCA 적용)
+  - PCA를 적용하고 평균 0, 표준편차 0.1을 갖는 가우시안 분포에서 랜덤 변수를 추출한 후, 원래 픽셀 값에 곱해주어 색상을 변형시킴
+    - 이미지의 각 픽셀 값 $I_{xy} = [I^R_{xy},I^G_{xy},I^B_{xy}]$에 $[\mathbf{p_1, p_2, p_3}][\alpha_1\lambda_1,\alpha_2\lambda_2,\alpha_3\lambda_3]^T$ 값이 추가됨
+    - $\mathbf{p_i}, \lambda_i$ : (이미지 내의?) RGB 픽셀 값의 3x3 공분산 행렬에 대한 i번째 고유벡터(eigenvector)와 고유값(eigenvalue)
+    - $\alpha_i$ : 무작위 확률 변수
+
+  - 자연물의 경우 조명이 바뀌거나 색상이 변해도 물체의 정체성이 변하지 않는 다는 점에서 착안하여 적용한 증강 방식
+  - top-1 error에서 1% 이상 성능 향상
+  
+### Dropout
+- 다양한 모델의 예측을 결합(앙상블) : 성능을 높이는 매우 성공적인 방법이지만 비용이 너무 많이 든다
+- 그래서 저자들은 더욱 효율적인 모델 조합 방법 - dropout을 도입
+- 은닉층의 각 뉴런에 대해서 일정 확률로 뉴런의 출력을 0으로 함
+  - 'dropped out'된 뉴런들은 전방향 연산, 역전파 연산에 아무런 영향을 미치지 못함
+  - 이를 통해 서로 다른 구조의 모델을 학습 시키는 것과 유사한 효과를 낸다
+- 테스트 시에는 모든 뉴런 사용, 출력에 1-dropout rate를 곱해줌(해당 논문에서는 0.5)
+- 처음 두 fc-layer에 대해서 dropout을 적용해서 overfitting을 방지하는 효과를 얻음
+
+## Details of learning
+- batch size 128, momentum 0.9, weight decay 0.0005인 sgd(확률적 경사 하강법) 사용
+  - 저자들은 작은 값의 weight decay를 사용하는것이 중요하다고 함
+  - 단순한 정규화, 규제가 아닌 모델 자체의 성능을 향상시켜주는 역할을 함
+  $$
+  v_{i+1} := 0.9 \cdot v_i - 0.0005 \cdot \epsilon \cdot w_i - \epsilon \cdot \Big \langle \frac{\partial L}{\partial w} |_{w_i} \Big \rangle _{D_i}
+  $$
+
+  $$
+  w_{i+1} := w_i + v_{i+1}
+  $$
+
+  - $i$ : iteration index, $v$ : momentum variable, $\epsilon$ : learning rate
+  - $\Big \langle \frac{\partial L}{\partial w} |_{w_i} \Big \rangle$ : $i$번째 배치에서 목적 함수의 $w$에 대한 도함수의 평균($w_i$의 시점에서)
+- 가중치 초기화: 각각의 레이어를 평균 0, 표준편차 0.01인 가우시안 분포 사용
+- 2, 4, 5번째 conv layer, fc layer의 편향(bias)를 1로 초기화
+  - 이 초기화 방법은 ReLU에 positive input을 부여하여 초기 학습을 가속함
+- 나머지 뉴런의 편향은 0으로 초기화
+
+- 모든 레이어에 동일한 학습률 사용
+  - 학습률은 수동으로 조정
+  - 현재의 학습률에서 성능 향상이 없으면 학습률을 10으로 나눠줌 &rarr; 학습 마무리까지 총 3번 이루어짐
+
+## Results
+- ILSVRC-2010과 2012에서의 결과 나열
+
+### Qualitative Evalutaions(정성적 평가)
+- 두 개의 GPU 중 GPU1의 커널들은 대체로 색상에 구애받지 않는 반면(color-agnostic), GPU2의 커널들의 경우 색상에 구애받는 경우(color-specific)가 많았음
+- 객체가 중앙에서 벗어난 이미지의 경우에도 적절한 결과를 냄
+- 대부분의 top-5 label이 합리적
+- 틀린 답을 낸 경우 사람이 보기에도 모호한 경우가 많았음
+- 마지막 4096차원 fc-layer(fc2)의 output을 비교하여 유사한 값을 내는 이미지들은 실제로 유사한 이미지를 반환함
+  - 4096차원 벡터에 대한 오토인코더를 학습시켜서 벡터간 비교의 효율성 향상 가능
+
+## Discussion
+- deep convolutional network를 사용해서 복잡한 dataset에서 우수한 성능을 기록한 것이 의미가 있음
+  - 어느 한 개의 레이어를 삭제해도 성능이 떨어짐
+
+- 저자들은 궁극적으로 비디오 시퀀스에 deep convolutional network를 적용하고 싶어함
