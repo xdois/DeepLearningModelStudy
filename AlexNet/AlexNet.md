@@ -1,6 +1,5 @@
 # ImageNet Classification with Deep Convolutional Neural Networks
 
-(작성중)
 ## Abstract
 - max-pooling layer, dropout 등을 적용하여 ILSVRC-2012에서 큰 차이로 1등을 차지
 
@@ -206,13 +205,10 @@ $$ b^i_{x,y}  = a^i_{x,y} / \left(k + \alpha \sum\limits_{j=max(0,i-n/2)}^{min(N
 - batch size 128, momentum 0.9, weight decay 0.0005인 sgd(확률적 경사 하강법) 사용
   - 저자들은 작은 값의 weight decay를 사용하는것이 중요하다고 함
   - 단순한 정규화, 규제가 아닌 모델 자체의 성능을 향상시켜주는 역할을 함
-  $$
-  v_{i+1} := 0.9 \cdot v_i - 0.0005 \cdot \epsilon \cdot w_i - \epsilon \cdot \Big \langle \frac{\partial L}{\partial w} |_{w_i} \Big \rangle _{D_i}
-  $$
+  
+  $$v_{i+1} := 0.9 \cdot v_i - 0.0005 \cdot \epsilon \cdot w_i - \epsilon \cdot \Big \langle \frac{\partial L}{\partial w} |_{w_i} \Big \rangle _{D_i}$$
 
-  $$
-  w_{i+1} := w_i + v_{i+1}
-  $$
+  $$w_{i+1} := w_i + v_{i+1}$$
 
   - $i$ : iteration index, $v$ : momentum variable, $\epsilon$ : learning rate
   - $\Big \langle \frac{\partial L}{\partial w} |_{w_i} \Big \rangle$ : $i$번째 배치에서 목적 함수의 $w$에 대한 도함수의 평균($w_i$의 시점에서)
