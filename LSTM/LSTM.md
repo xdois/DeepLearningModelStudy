@@ -1,0 +1,1 @@
+# Long Short-Term Memory Recurrent Neural Network Architectures for Large Scale Acoustic Modeling(2014)
